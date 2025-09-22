@@ -1,0 +1,59 @@
+services:
+  # ---------- Database ----------
+  db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: smart_inventory_db
+    environment:
+      SA_PASSWORD: "StrongPassword123!"
+      ACCEPT_EULA: "Y"
+    ports:
+      - "1433:1433"
+    networks:
+      - smart-inventory-network
+    healthcheck:
+      test: ["CMD", "/opt/mssql-tools/bin/sqlcmd", "-S", "localhost", "-U", "sa", "-P", "StrongPassword123!", "-Q", "SELECT 1"]
+      interval: 10s
+      retries: 10
+      timeout: 5s
+
+  # ---------- Backend ----------
+  backend:
+    build:
+      context: ../backend
+      target: development
+    container_name: smart_inventory_backend
+    volumes:
+      - ./backend:/var/www/html
+    environment:
+      ENVIRONMENT: development
+      DB_HOST: db
+      DB_PORT: 1433
+      DB_DATABASE: SmartInventory
+      DB_USERNAME: sa
+      DB_PASSWORD: StrongPassword123!
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    networks:
+      - smart-inventory-network
+
+  # ---------- Frontend ----------
+  frontend:
+    build:
+      context: ../frontend
+      target: development
+    container_name: smart_inventory_frontend
+    volumes:
+      - ./frontend:/app
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    networks:
+      - smart-inventory-network
+
+networks:
+  smart-inventory-network:
+    driver: bridge
